@@ -26,6 +26,7 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from oat.types import PreferenceData, TrajectoryData
+from oat.utils import PROMPT_DATA_PREPROCESSING
 from oat.utils.deepspeed import DeepspeedStrategy
 
 
@@ -55,6 +56,7 @@ def get_datasets(tokenizer, strategy, eval_only=False):
     args = strategy.args
     if not eval_only or args.eval_data == "":
         prompt_dataset = load_data_from_disk_or_hf(args.prompt_data)
+        prompt_dataset = prompt_dataset.map(PROMPT_DATA_PREPROCESSING[args.prompt_data_preprocessing_func])
         prompts_data = prompt_dataset[args.train_split].select(
             range(min(args.max_train, len(prompt_dataset[args.train_split])))
         )
@@ -68,6 +70,8 @@ def get_datasets(tokenizer, strategy, eval_only=False):
             else:
                 name, path = None, args.eval_data
             eval_dataset = datasets.load_dataset(path, name, trust_remote_code=True)
+
+        eval_dataset = eval_dataset.map(PROMPT_DATA_PREPROCESSING[args.prompt_data_preprocessing_func])
     else:
         # Share the same dataset but use different split.
         eval_dataset = prompt_dataset
