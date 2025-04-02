@@ -55,7 +55,15 @@ def load_data_from_disk_or_hf(data_name):
 def get_datasets(tokenizer, strategy, eval_only=False):
     args = strategy.args
     if not eval_only or args.eval_data == "":
-        prompt_dataset = load_data_from_disk_or_hf(args.prompt_data)
+        if os.path.exists(args.prompt_data):
+            prompt_dataset = datasets.load_from_disk(args.prompt_data)
+        else:
+            if "@" in args.prompt_data:
+                name, path = args.prompt_data.split("@")
+            else:
+                name, path = None, args.prompt_data
+            prompt_dataset = datasets.load_dataset(path, name, trust_remote_code=True)
+
         prompt_dataset = prompt_dataset.map(PROMPT_DATA_PREPROCESSING[args.prompt_data_preprocessing_func])
         prompts_data = prompt_dataset[args.train_split].select(
             range(min(args.max_train, len(prompt_dataset[args.train_split])))
