@@ -131,7 +131,7 @@ class OATArgs:
 
     # Prompt dataset.
     prompt_data: str = "lkevinzc/tldr-with-sft-reference"
-    prompt_data_preprocessing_func: str = "gsm8k_reasoning_prompt"
+    prompt_data_preprocessing_func: str = None
     input_key: str = "prompt"
     output_key: str = "output"
     train_split: str = "train"
