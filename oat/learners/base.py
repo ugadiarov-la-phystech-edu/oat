@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import abc
+import collections
 import logging
 import math
 import os
@@ -522,7 +523,9 @@ class LearnerBase(abc.ABC, DistributedLauncher):
         scores = 0
         accuracy = 0
         response_len = 0
+        response_text_len = 0
         eval_count = 0
+        infos = collections.defaultdict(list)
         if self.strategy.is_rank_0():
             processed_prompts = []
             prompts = []
@@ -548,11 +551,14 @@ class LearnerBase(abc.ABC, DistributedLauncher):
                 futs.append(fut)
                 if len(futs) == len(self.actors) or i == len(dataloader) - 1:
                     for fut in futs:
-                        resp, score = fut.result()
+                        resp, score, info = fut.result()
                         responses.extend(resp)
                         wins.extend(score > 0.5)  # For preference learning.
                         accuracies.extend(score == 1)  # For RL with verifiable rewards.
                         scores.extend(score)
+                        for key, value in info.items():
+                            infos[key].extend(value)
+
                     futs.clear()
                 progress_bar.update()
 
@@ -575,9 +581,12 @@ class LearnerBase(abc.ABC, DistributedLauncher):
             win_rate = np.mean(wins).item()
             scores = np.mean(scores).item()
             accuracy = np.mean(accuracies).item()
+            response_text_len = np.mean([len(resp) for resp in responses])
             response_len = np.mean(
                 tree.map_structure(lambda x: len(self.tokenizer.encode(x)), responses)
             )
+            infos = {key: np.mean(value).item() for key, value in infos.items() if
+                     "rewards" in key or "lengths" in key or "accuracies" in key}
 
         dist.barrier()
 
@@ -585,7 +594,9 @@ class LearnerBase(abc.ABC, DistributedLauncher):
         scores = self.strategy.broadcast(scores)
         accuracy = self.strategy.broadcast(accuracy)
         response_len = self.strategy.broadcast(response_len)
+        response_text_len = self.strategy.broadcast(response_text_len)
         eval_count = self.strategy.broadcast(eval_count)
+        infos = self.strategy.broadcast(infos)
 
         # 4) Recover Actors' original behavior policy.
         if self.strategy.is_rank_0():
@@ -593,14 +604,18 @@ class LearnerBase(abc.ABC, DistributedLauncher):
             _ = [d.result() for d in done]
 
         dist.barrier()
-        return {
+        metrics = {
             "eval/rm_win_rate": win_rate,
             "eval/score": scores,
             "eval/accuracy": accuracy,
             "eval/eval_count": eval_count,
             "eval/elapse": time.time() - st_time,
             "eval/response_tok_len": response_len,
+            "eval/response_text_len": response_text_len,
         }
+        metrics.update({f'eval/{key}': value for key, value in infos.items()})
+
+        return metrics
 
     def sync_params_to_actors(self):
         st = time.time()

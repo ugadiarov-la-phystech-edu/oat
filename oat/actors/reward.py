@@ -74,7 +74,7 @@ class RewardActor(ActorBase):
         if references:
             logging.debug(f"Evaluating using oracle {self.oracle}")
             st = time.time()
-            win_probs, _ = self.oracle.compare(
+            win_probs, info = self.oracle.compare(
                 prompts * self.eval_sampling_params.n,
                 responses,
                 references * self.eval_sampling_params.n,
@@ -91,7 +91,7 @@ class RewardActor(ActorBase):
         reshaped_win_probs = win_probs.reshape(
             self.eval_sampling_params.n, len(prompts)
         ).transpose(1, 0)
-        return reshaped_responses, reshaped_win_probs
+        return reshaped_responses, reshaped_win_probs, info
 
     def step(
         self,
@@ -132,6 +132,12 @@ class RewardActor(ActorBase):
         info["actor/rewards_std"] = rewards.std().item()
         info["actor/rewards_std_per_prompt"] = rewards.std(1).mean().item()
         info["actor/oracle_time"] = time.time() - st
+        for key, value in oracle_info.items():
+            for tag in ("rewards", "lengths", 'accuracies'):
+                if tag in key:
+                    info[f"actor/{key}"] = value
+                    continue
+
         # info.update({f"oracle/{k}": v for k, v in oracle_info.items()})
 
         trajectory_data = [

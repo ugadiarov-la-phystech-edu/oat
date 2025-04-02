@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from oat.oracles.gpt import GPTJudgeOracle
-from oat.oracles.gsm8k import GSM8KOracle
+from oat.oracles.gsm8k import GSM8KOracle, GSM8KFormatOracle
 from oat.oracles.pair import PairRMOracle
 from oat.oracles.remote.client import RemoteRMOracle
 
@@ -27,6 +27,8 @@ def get_cls(model_name: str):
         return RemoteRMOracle
     if "gsm8k" == model_name.lower():
         return GSM8KOracle
+    if "gsm8k_format" == model_name.lower():
+        return GSM8KFormatOracle
     # Return None if specified oracle is not implemented in oat;
     # in this case users need to define their own oracle.
     return None

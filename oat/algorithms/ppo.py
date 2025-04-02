@@ -170,7 +170,7 @@ class PPOActor(RewardActor):
 
         # step 2. verify
         st = time.time()
-        rewards, _ = self.oracle.get_reward(
+        rewards, oracle_info = self.oracle.get_reward(
             list(
                 itertools.chain.from_iterable(
                     itertools.repeat(x, self.sampling_params.n) for x in prompts
@@ -195,6 +195,11 @@ class PPOActor(RewardActor):
         info["actor/response_tok_len"] = np.mean(resp_lens)
         info["actor/sampling_max_tokens"] = self.sampling_params.max_tokens
         info["actor/sampling_temperature"] = self.sampling_params.temperature
+        for key, value in oracle_info.items():
+            for tag in ("rewards", "lengths", 'accuracies'):
+                if tag in key:
+                    info[f"actor/{key}"] = value
+                    continue
 
         trajectory_data = []
         for i in range(len(candidates)):
