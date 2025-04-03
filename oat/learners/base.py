@@ -581,7 +581,9 @@ class LearnerBase(abc.ABC, DistributedLauncher):
             win_rate = np.mean(wins).item()
             scores = np.mean(scores).item()
             accuracy = np.mean(accuracies).item()
-            response_text_len = np.mean([len(resp) for resp in responses])
+            response_text_len = np.mean(
+                tree.map_structure(lambda x: len(x), responses)
+            )
             response_len = np.mean(
                 tree.map_structure(lambda x: len(self.tokenizer.encode(x)), responses)
             )
