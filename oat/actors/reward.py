@@ -71,6 +71,7 @@ class RewardActor(ActorBase):
             responses.extend([candidates[i][j] for i in range(len(prompts))])
 
         win_probs = None
+        info = {}
         if references:
             logging.debug(f"Evaluating using oracle {self.oracle}")
             st = time.time()
@@ -135,7 +136,7 @@ class RewardActor(ActorBase):
         for key, value in oracle_info.items():
             for tag in ("rewards", "lengths", 'accuracies'):
                 if tag in key:
-                    info[f"actor/{key}"] = value
+                    info[key] = value
                     continue
 
         # info.update({f"oracle/{k}": v for k, v in oracle_info.items()})

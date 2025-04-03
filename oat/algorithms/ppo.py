@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """Proximal Policy Optimization."""
-
+import collections
 import functools
 import gc
 import itertools
@@ -198,7 +198,7 @@ class PPOActor(RewardActor):
         for key, value in oracle_info.items():
             for tag in ("rewards", "lengths", 'accuracies'):
                 if tag in key:
-                    info[f"actor/{key}"] = value
+                    info[key] = value
                     continue
 
         trajectory_data = []
@@ -247,6 +247,16 @@ class PPOLearner(RLLearner):
             self.tokenizer,
             self.strategy,
         )
+        rollout_stats = collections.defaultdict(list)
+        for trajectory_data in self.pi_buffer:
+            rollout_stats['response_len'].append(len(trajectory_data.response))
+            rollout_stats['rewards'].append(trajectory_data.rewards[-1])
+            for key, value in trajectory_data.info.items():
+                if not key.startswith('actor'):
+                    if 'rewards' in key or 'lengths' in key or 'accuracies' in key:
+                        rollout_stats[key].extend(value)
+        rollout_stats = {key: np.mean(value) for key, value in rollout_stats.items()}
+
         if learning_round == 1:
             self.strategy.print("Training example")
             self.strategy.print(dataset[0])
@@ -305,6 +315,7 @@ class PPOLearner(RLLearner):
             "learning_round": learning_round,
             "learn_batch_time": np.mean(learn_batch_time),
             **tree.map_structure(lambda x: x.cpu().float().mean().item(), infos),
+            **rollout_stats,
         }
         train_info = {
             "train/%s" % k: v

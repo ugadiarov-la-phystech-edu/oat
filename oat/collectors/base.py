@@ -75,22 +75,9 @@ class FeedbackCollector:
         else:
             raise ValueError("Invalid feedback data type.")
 
-        mean_info = {}
-        for fd in feedback_data:
-            for key, value in fd.info.items():
-                if isinstance(value, tuple):
-                    value = list(value)
-                elif not isinstance(value, list):
-                    # Should be a scalar
-                    float(value)
-                    value = [value]
-
-                if key not in mean_info:
-                    mean_info[key] = value
-                else:
-                    mean_info[key].extend(value)
-
-        mean_info = {key: np.mean(value) for key, value in mean_info.items()}
+        mean_info = tree.map_structure(
+            lambda *x: np.mean(x), *[p.info for p in feedback_data]
+        )
         metric.update(mean_info)
 
         return metric
