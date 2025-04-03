@@ -175,6 +175,7 @@ class OATArgs:
     max_save_num: int = 5
     max_save_mem: int = 1000
     logging_steps: int = 1
+    logging_rollout_completions_steps: int = 10
     num_prompt_epoch: int = 1
     train_batch_size: int = 128
     train_batch_size_per_device: int = 1

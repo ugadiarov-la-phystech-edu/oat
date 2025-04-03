@@ -62,6 +62,7 @@ class TrajectoryData:
     rewards: List[float]
     loss_mask: bool = True
     info: Metric = None
+    reference: str = None
 
 
 class RewardData(NamedTuple):

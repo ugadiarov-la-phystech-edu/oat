@@ -204,6 +204,7 @@ class PPOActor(RewardActor):
         trajectory_data = []
         for i in range(len(candidates)):
             prompt = prompts[i]
+            reference = None if references is None else references[i]
             candidates_per_prompt = candidates[i]
             for j in range(len(candidates_per_prompt)):
                 reward = rewards[i][j].item()
@@ -222,6 +223,7 @@ class PPOActor(RewardActor):
                         rewards=dense_rewards,
                         loss_mask=not no_eos[i][j] if self.args.ignore_no_eos else True,
                         info=info,
+                        reference=reference,
                     )
                 )
         logging.info(f"actor finished data_len={len(trajectory_data)}")
@@ -248,9 +250,13 @@ class PPOLearner(RLLearner):
             self.strategy,
         )
         rollout_stats = collections.defaultdict(list)
+        table = collections.defaultdict(list)
         for trajectory_data in self.pi_buffer:
             rollout_stats['response_len'].append(len(trajectory_data.response))
             rollout_stats['rewards'].append(trajectory_data.rewards[-1])
+            table['prompt'].append(trajectory_data.prompt)
+            table['response'].append(trajectory_data.response)
+            table['reference'].append(trajectory_data.reference)
             for key, value in trajectory_data.info.items():
                 if not key.startswith('actor'):
                     if 'rewards' in key or 'lengths' in key or 'accuracies' in key:
@@ -323,6 +329,7 @@ class PPOLearner(RLLearner):
                 **train_info,
             }.items()
         }
+        train_info['table'] = table
         logging.info(f"finish learn()")
 
         return train_info

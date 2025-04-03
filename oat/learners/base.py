@@ -487,6 +487,10 @@ class LearnerBase(abc.ABC, DistributedLauncher):
                     **misc_info,
                 }.items()
             }
+            table = None
+            if 'table' in train_info:
+                table = train_info.pop('table')
+
             logs_dict = {**train_info, **eval_info, **self.actor_info, **misc_info}
             logs_dict = self.strategy.all_reduce(logs_dict)
             logs_dict.update(
@@ -504,6 +508,9 @@ class LearnerBase(abc.ABC, DistributedLauncher):
                     self.strategy.print(np.random.choice(self.pi_buffer))
                 self.strategy.pprint(logs_dict)
                 if self._wandb is not None:
+                    if table is not None and self.steps % self.args.logging_rollout_completions_steps == 0:
+                        logs_dict['completions'] = self._wandb.Table(dataframe=pd.DataFrame(table))
+
                     self._wandb.log(logs_dict)
 
     def evaluate(self, dataloader, steps):
