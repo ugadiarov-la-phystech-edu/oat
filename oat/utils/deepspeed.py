@@ -569,6 +569,13 @@ class DeepspeedStrategy(ABC):
                 ret[k] = self.all_reduce(v, op)
             return ret
         else:
+            if isinstance(data, list):
+                if op == "mean":
+                    return np.mean(data)
+                elif op == "max":
+                    return np.max(data)
+                elif op == "sum":
+                    return np.sum(data)
             is_tensor = True
             if not isinstance(data, torch.Tensor):
                 data = torch.Tensor([data])
