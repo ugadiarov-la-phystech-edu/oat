@@ -11,3 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from oat.utils.data_preprocessor import gsm8k_reasoning_prompt
+
+PROMPT_DATA_PREPROCESSING = {
+    None: lambda x: x,
+    'gsm8k_reasoning_prompt': gsm8k_reasoning_prompt,
+}
