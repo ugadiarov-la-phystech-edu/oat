@@ -551,7 +551,7 @@ class LearnerBase(abc.ABC, DistributedLauncher):
                         resp, score = fut.result()
                         responses.extend(resp)
                         wins.extend(score > 0.5)  # For preference learning.
-                        accuracies.extend(score > 1)  # For RL with verifiable rewards.
+                        accuracies.extend(score >= 1)  # For RL with verifiable rewards.
                         scores.extend(score)
                     futs.clear()
                 progress_bar.update()
