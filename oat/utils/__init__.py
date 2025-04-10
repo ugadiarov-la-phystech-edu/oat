@@ -19,5 +19,5 @@ PROMPT_DATA_PREPROCESSING = {
     'gsm8k_reasoning_prompt': gsm8k_reasoning_prompt,
     'multiplication4x4_reasoning_prompt': multiplication4x4_reasoning_prompt,
     'multiplication4x4_reasoning_prompt_simple': multiplication4x4_reasoning_prompt_simple,
-    'multiplication4x4_reasoning_prompt_reversed': multiplication4x4_reasoning_prompt_reversed(),
+    'multiplication4x4_reasoning_prompt_reversed': multiplication4x4_reasoning_prompt_reversed,
 }
