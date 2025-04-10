@@ -31,6 +31,20 @@ Respond in the following format:
 Step by step, multiply the numbers. For each place value of the multiplier, provide the intermediate multiplication result in the form of <step>multiplicand * place value = result</step>. Sum all the intermediate results and provide the final result in the <answer>...</answer>.
 """
 
+
+MULTIPLICATION4x4_PROMPT_REVERSED = """
+Respond in the following format:
+<reasoning>
+<step>...</step>
+...
+<step>...</step>
+</reasoning>
+<answer>...</answer>
+
+Step by step, multiply the reversed numbers. For each place value of the multiplier, provide the intermediate multiplication result in the form of <step>multiplicand * place value = result</step>. Sum all the intermediate results and provide the final result as a reversed number in the <answer>...</answer>.
+"""
+
+
 MULTIPLICATION4x4_PROMPT_EXTENDED = """
 Respond in the following format:
 <reasoning>
@@ -66,3 +80,15 @@ def multiplication4x4_reasoning_prompt(example, sys_prompt=MULTIPLICATION4x4_PRO
 
 def multiplication4x4_reasoning_prompt_simple(example):
     return multiplication4x4_reasoning_prompt(example, sys_prompt=MULTIPLICATION4x4_SIMPLE)
+
+
+def multiplication4x4_reasoning_prompt_reversed(example, sys_prompt=MULTIPLICATION4x4_PROMPT_REVERSED):
+    multiplicand, multiplier = example['task'].replace(' ', '').split('*')
+    answer = example['labels'].replace(' ', '')
+    gt_step_strings = []
+    for place, digit in enumerate(multiplier):
+        place_value = f'{digit}{"0" * place}'
+        step_answer = str(int(multiplicand[::-1]) * int(place_value))[::-1]
+        gt_step_strings.append(f'{multiplicand} * {place_value[::-1]} = {step_answer}')
+    gt_steps = '\n'.join(gt_step_strings)
+    return {'reasoning_prompt': f'{sys_prompt.strip()}\n{multiplicand} * {multiplier}', 'final_answer': f'{gt_steps}\n{answer}'}

@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from oat.utils.data_preprocessor import gsm8k_reasoning_prompt, multiplication4x4_reasoning_prompt, \
-    multiplication4x4_reasoning_prompt_simple
+    multiplication4x4_reasoning_prompt_simple, multiplication4x4_reasoning_prompt_reversed
 
 PROMPT_DATA_PREPROCESSING = {
     None: lambda x: x,
     'gsm8k_reasoning_prompt': gsm8k_reasoning_prompt,
     'multiplication4x4_reasoning_prompt': multiplication4x4_reasoning_prompt,
     'multiplication4x4_reasoning_prompt_simple': multiplication4x4_reasoning_prompt_simple,
+    'multiplication4x4_reasoning_prompt_reversed': multiplication4x4_reasoning_prompt_reversed(),
 }
