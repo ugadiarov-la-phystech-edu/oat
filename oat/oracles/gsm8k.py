@@ -262,36 +262,51 @@ class Multiplication4x4FormatOracle(RewardOracleBase, PreferenceOracleBase):
 
         is_correct_order_reasoning_tags = False
         is_correct_content_reasoning_tags = False
+        reasoning_starts_with_step = False
         reasoning_ends_with_step = False
         reasoning_string = None
-        step_strings = []
-        steps_are_sequential = []
         if has_reasoning_open and has_reasoning_close:
             is_correct_order_reasoning_tags = reasoning_open_index < reasoning_close_index
             if is_correct_order_reasoning_tags:
                 reasoning_string = response[reasoning_open_index + len(reasoning_open):reasoning_close_index]
                 is_correct_content_reasoning_tags = not contains_any(reasoning_string, all_tags)
-                reasoning_substring = reasoning_string.strip()
-                reasoning_ends_with_step = reasoning_substring.endswith(step_close)
-                while len(reasoning_substring) > 0:
-                    step_open_index = reasoning_substring.find(step_open)
-                    steps_are_sequential.append(step_open_index == 0)
-                    if step_open_index > -1:
-                        step_close_index = reasoning_substring.find(step_close)
-                        if step_open_index < step_close_index:
-                            step_string = reasoning_substring[step_open_index + len(step_open):step_close_index]
-                            step_strings.append(step_string.strip())
-                            index = step_close_index + len(step_close)
-                            reasoning_substring = reasoning_substring[index:].strip()
-                            continue
+                reasoning_ends_with_step = reasoning_string.strip().endswith(step_close)
+                reasoning_starts_with_step = reasoning_string.strip().startswith(step_open)
 
-                    break
+        step_tags_indices = []
+        index = 0
+        while index < len(response):
+            step_open_index = response.find(step_open, index)
+            if step_open_index > -1:
+                step_close_index = response.find(step_close, index)
+                if step_open_index < step_close_index:
+                    step_tags_indices.append((step_open_index, step_close_index))
+                    index = step_close_index + len(step_close)
+                    continue
 
-        are_steps_sequential = 0 if len(steps_are_sequential) == 0 else sum(steps_are_sequential) / len(steps_are_sequential)
-        is_correct_number_of_steps = len(step_strings) == len(gt_step_strings)
+            break
+
+        are_steps_in_reasoning = []
+        for step_indices in step_tags_indices[:len(gt_step_strings)]:
+            are_steps_in_reasoning.append(step_indices[0] > reasoning_open_index and step_indices[1] < reasoning_close_index)
+
+        are_steps_sequential = []
+        for i in range(1, len(step_tags_indices)):
+            prev_step_close_index = step_tags_indices[i - 1][1]
+            current_step_open_index = step_tags_indices[i][0]
+            are_steps_sequential.append(len(response[prev_step_close_index + len(step_close):current_step_open_index].strip()) == 0)
+
+        are_steps_sequential = 0 if len(are_steps_sequential) == 0 else sum(are_steps_sequential) / len(are_steps_sequential)
+        is_correct_number_of_steps = max(0, 1 - abs(1 - len(step_tags_indices) / len(gt_step_strings)))
         correct_step_strings = [False] * len(gt_step_strings)
-        for i, (step_string, gt_step_string) in enumerate(zip(step_strings, gt_step_strings)):
+        semi_correct_step_strings = [False] * len(gt_step_strings)
+        loose_correct_step_strings = [False] * len(gt_step_strings)
+        for i, (step_indices, gt_step_string) in enumerate(zip(step_tags_indices, gt_step_strings)):
+            step_string = response[step_indices[0] + len(step_open):step_indices[1]]
             correct_step_strings[i] = step_string == gt_step_string
+            semi_correct_step_strings[i] = step_string.replace(' ', '') in gt_step_string.replace(' ', '')
+            step_answer = gt_step_string.split('=')[-1].strip()
+            loose_correct_step_strings[i] = step_answer in step_string
 
         is_correct_order_answer_tags = False
         is_correct_content_answer_tags = False
@@ -314,10 +329,11 @@ class Multiplication4x4FormatOracle(RewardOracleBase, PreferenceOracleBase):
                       is_correct_order_reasoning_tags, is_correct_content_reasoning_tags,
                       is_correct_order_answer_tags, is_correct_content_answer_tags,
                       is_answer_after_reasoning, is_answer_right_after_reasoning, do_starts_with_reasoning,
-                      do_ends_with_answer, reasoning_ends_with_step, are_steps_sequential,
-                      is_correct_number_of_steps, *correct_step_strings]
+                      do_ends_with_answer, reasoning_starts_with_step, reasoning_ends_with_step, are_steps_sequential,
+                      is_correct_number_of_steps, *are_steps_in_reasoning, *correct_step_strings,
+                      *semi_correct_step_strings, *loose_correct_step_strings]
 
-        format_reward = 0.25 * sum([float(c) for c in all_checks]) / len(all_checks)
+        format_reward = 0.49 * sum([float(c) for c in all_checks]) / len(all_checks)
         return format_reward, reasoning_string, answer_string
 
     def get_reward(
