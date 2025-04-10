@@ -409,6 +409,149 @@ class Multiplication4x4FormatOracle(RewardOracleBase, PreferenceOracleBase):
             return pred_answer
 
 
+class Multiplication4x4FormatOracleSimple(RewardOracleBase, PreferenceOracleBase):
+    """Defines the verification rules for multiplication 4x4 task."""
+
+    def __init__(self, format_reward_positive: bool = True, **_) -> None:
+        super().__init__()
+        self.is_format_reward_positive = format_reward_positive
+
+    @staticmethod
+    def get_format_reward(response: str, gt_step_strings: List[str]):
+        reasoning_open = '<reasoning>'
+        reasoning_close = '</reasoning>'
+        answer_open = '<answer>'
+        answer_close = '</answer>'
+        all_tags = [reasoning_open, reasoning_close, answer_open, answer_close]
+
+        reasoning_open_index = response.find(reasoning_open)
+        has_reasoning_open = reasoning_open_index > -1
+
+        reasoning_close_index = response.rfind(reasoning_close)
+        has_reasoning_close = reasoning_close_index > -1
+
+        answer_open_index = response.find(answer_open)
+        has_answer_open = answer_open_index > -1
+
+        answer_close_index = response.rfind(answer_close)
+        has_answer_close = answer_close_index > -1
+
+        is_correct_order_reasoning_tags = False
+        is_correct_content_reasoning_tags = False
+        reasoning_string = None
+        if has_reasoning_open and has_reasoning_close:
+            is_correct_order_reasoning_tags = reasoning_open_index < reasoning_close_index
+            if is_correct_order_reasoning_tags:
+                reasoning_string = response[reasoning_open_index + len(reasoning_open):reasoning_close_index]
+                is_correct_content_reasoning_tags = not contains_any(reasoning_string, all_tags)
+
+        is_correct_order_answer_tags = False
+        is_correct_content_answer_tags = False
+        answer_string = None
+        if has_answer_open and has_answer_close:
+            is_correct_order_answer_tags = answer_open_index < answer_close_index
+            if is_correct_order_answer_tags:
+                answer_string = response[answer_open_index + len(answer_open):answer_close_index]
+                is_correct_content_answer_tags = not contains_any(answer_string, all_tags)
+
+        is_answer_after_reasoning = is_correct_order_reasoning_tags and is_correct_order_answer_tags \
+                                    and reasoning_close_index < answer_open_index
+        is_answer_right_after_reasoning = is_answer_after_reasoning \
+                                          and response[reasoning_close_index + len(
+            reasoning_close):answer_open_index].strip() == ""
+
+        do_starts_with_reasoning = response.strip().startswith(reasoning_open)
+        do_ends_with_answer = response.strip().endswith(answer_close)
+
+        has_step_results = []
+        has_step_result_in_reasoning = []
+        for gt_step_string in gt_step_strings:
+            step_answer = gt_step_string.split('=')[1].strip()
+            has_step_results.append(step_answer in response)
+            has_step_result_in_reasoning.append(reasoning_string is not None and step_answer in reasoning_string)
+
+        all_checks = [has_reasoning_open, has_reasoning_close, has_answer_open, has_answer_close,
+                      is_correct_order_reasoning_tags, is_correct_content_reasoning_tags,
+                      is_correct_order_answer_tags, is_correct_content_answer_tags,
+                      is_answer_after_reasoning, is_answer_right_after_reasoning, do_starts_with_reasoning,
+                      do_ends_with_answer, *has_step_results, *has_step_result_in_reasoning]
+
+        format_reward = 0.49 * sum([int(c) for c in all_checks]) / len(all_checks)
+        return format_reward, reasoning_string, answer_string
+
+    def get_reward(
+        self,
+        inputs: List[str],
+        responses: List[str],
+        references: List[str],
+        batch_size: int = 4,
+    ) -> Tuple[torch.Tensor, Metric]:
+        del inputs, batch_size
+        predicted_answers = []
+        rewards = []
+        format_rewards = []
+        answer_rewards = []
+        reasoning_lengths = []
+        answer_lengths = []
+        soft_accuracies = []
+        hard_accuracies = []
+
+        for resp, ref in zip(responses, references):
+            lines = ref.split('\n')
+            gt_step_strings = lines[:-1]
+            gt_answer = lines[-1]
+            format_reward, reasoning_string, answer_string = self.get_format_reward(resp, gt_step_strings)
+            if not self.is_format_reward_positive:
+                format_reward -= 1
+
+            answer_reward = 0
+            if answer_string is not None:
+                try:
+                    answer_reward = int(float(answer_string) == float(gt_answer))
+                except ValueError:
+                    answer = self._extract_predicted_answer_from_text(answer_string.strip())
+                    if answer is not None:
+                        answer_reward = 0.5 * int(float(answer) == float(gt_answer))
+
+            predicted_answers.append(answer_string)
+            rewards.append(format_reward + answer_reward)
+            format_rewards.append(format_reward)
+            answer_rewards.append(answer_reward)
+            soft_accuracies.append(float(answer_reward > 0))
+            hard_accuracies.append(float(answer_reward == 1))
+            if reasoning_string is not None:
+                reasoning_lengths.append(len(reasoning_string))
+            if answer_string is not None:
+                answer_lengths.append(len(answer_string))
+
+        return torch.tensor(rewards), {"predicted_answers": predicted_answers,}
+
+    def compare(
+        self,
+        inputs: List[str],
+        candidates_A: List[str],
+        candidates_B: List[str],
+        batch_size: int = 4,
+        return_probs: bool = False,
+        disable_tqdm: bool = False,
+    ) -> Tuple[List[Any], Metric]:
+        """Facilitates easier evaluation, returning accuracy as winning probability."""
+        del batch_size, return_probs, disable_tqdm
+        rewards, info = self.get_reward(inputs, candidates_A, candidates_B)
+        return rewards.numpy(), info
+
+    @staticmethod
+    def _extract_predicted_answer_from_text(text: str) -> Optional[str]:
+        text = text.replace(",", "")
+        pred_answer = FIND_NUMBERS_REGEX.findall(text)  # TODO: add task to attributes
+        if len(pred_answer) == 0:
+            return None
+        else:
+            # Pick the last number
+            pred_answer = pred_answer[-1].strip().rstrip(".")
+            return pred_answer
+
+
 if __name__ == '__main__':
     oracle = Multiplication4x4FormatOracle()
     inputs = ["""

@@ -8,6 +8,17 @@ Respond in the following format:
 </answer>
 """
 
+MULTIPLICATION4x4_SIMPLE = """
+Respond in the following format:
+<reasoning>
+...
+</reasoning>
+<answer>
+...
+</answer>
+Multiply the numbers using the long multiplication method, and provide the partial products as well as the final product in your response:
+"""
+
 MULTIPLICATION4x4_PROMPT = """
 Respond in the following format:
 <reasoning>
@@ -40,7 +51,7 @@ def gsm8k_reasoning_prompt(example):
     return {'reasoning_prompt': f'{SYSTEM_PROMPT.strip()}\n{example["question"].strip()}', 'final_answer': final_answer}
 
 
-def multiplication4x4_reasoning_prompt(example):
+def multiplication4x4_reasoning_prompt(example, sys_prompt=MULTIPLICATION4x4_PROMPT):
     multiplier, multiplicand = example['task'][::-1].replace(' ', '').split('*')
     answer = example['labels'][::-1].replace(' ', '')
     assert int(multiplicand) * int(multiplier) == int(answer)
@@ -50,4 +61,8 @@ def multiplication4x4_reasoning_prompt(example):
         step_answer = int(multiplicand) * int(place_value)
         gt_step_strings.append(f'{multiplicand} * {place_value} = {step_answer}')
     gt_steps = '\n'.join(gt_step_strings)
-    return {'reasoning_prompt': f'{MULTIPLICATION4x4_PROMPT.strip()}\n{multiplicand} * {multiplier}', 'final_answer': f'{gt_steps}\n{answer}'}
+    return {'reasoning_prompt': f'{sys_prompt.strip()}\n{multiplicand} * {multiplier}', 'final_answer': f'{gt_steps}\n{answer}'}
+
+
+def multiplication4x4_reasoning_prompt_simple(example):
+    return multiplication4x4_reasoning_prompt(example, sys_prompt=MULTIPLICATION4x4_SIMPLE)
